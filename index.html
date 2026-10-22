@@ -193,6 +193,7 @@ textarea{min-height:90px;font-family:var(--f-mono);font-size:12px;resize:vertica
   <section class="controls" aria-label="Kontroller">
     <div class="goal-head"><span class="eyebrow">Hedef süre</span></div>
     <div class="goals" role="radiogroup" aria-label="Hedef süre" id="goals"></div>
+    <p class="fine">Hedef süre dolunca sayaç devam eder. İstediğin zaman “Orucu bitir” ile durdurup kaydedebilirsin.</p>
 
     <div id="idleCtl" class="controls">
       <button class="primary" id="startBtn" type="button">Orucu başlat</button>
@@ -272,7 +273,13 @@ textarea{min-height:90px;font-family:var(--f-mono);font-size:12px;resize:vertica
   "use strict";
   var KEY = "suorucu.v1";
   var H = 3600000;
-  var GOALS = [12, 16, 18, 20, 24, 36, 48, 72];
+  var GOALS = [12, 16, 18, 20, 24, 36, 48, 72, 96, 120, 168, -1];
+  function goalLabel(h){
+    if (h === -1) return "Süresiz";
+    if (h === 168) return "1 hafta";
+    if (h >= 72 && h % 24 === 0) return (h/24) + " gün";
+    return h + " sa";
+  }
   var PHASES = [
     {h:0,  name:"Sindirim", body:"Kan şekerin ve insülinin son öğüne bağlı olarak yüksek. Vücudun besinleri sindiriyor, enerjinin bir kısmını hemen kullanıyor, kalanını glikojen ve yağ olarak depoluyor."},
     {h:4,  name:"İnsülin düşüyor", body:"Kan şekerin normale dönüyor ve insülin azalıyor. Vücut enerji için karaciğerdeki glikojen deposunu kullanmaya başlıyor."},
@@ -351,7 +358,8 @@ textarea{min-height:90px;font-family:var(--f-mono);font-size:12px;resize:vertica
       b.type = "button"; b.className = "chip"; b.id = "goal-" + h;
       b.setAttribute("role", "radio");
       b.setAttribute("aria-checked", String(h === curGoal()));
-      b.textContent = h + " sa";
+      b.textContent = goalLabel(h);
+      if (h >= 72) b.setAttribute("aria-label", goalLabel(h) + " · " + h + " saat");
       b.addEventListener("click", function(){ state.goal = h; if (state.active) state.active.goal = h; save(); renderGoals(); tick(); });
       g.appendChild(b);
     });
@@ -390,16 +398,18 @@ textarea{min-height:90px;font-family:var(--f-mono);font-size:12px;resize:vertica
   function tick(){
     var active = !!state.active;
     var el = elapsed();
-    var goalMs = curGoal()*H;
+    var hasGoal = curGoal() > 0;
+    var goalMs = hasGoal ? curGoal()*H : Infinity;
     var p = active ? el/goalMs : 0;
 
     setReadout("lbl", active ? "GEÇEN SÜRE" : "HAZIR");
     setReadout("clock", clock(el));
-    if (!active) setReadout("sub", "hedef " + curGoal() + " sa");
-    else if (el < goalMs) setReadout("sub", "hedef " + curGoal() + " sa · %" + Math.floor(p*100));
+    if (!hasGoal) setReadout("sub", "süresiz");
+    else if (!active) setReadout("sub", "hedef " + goalLabel(curGoal()));
+    else if (el < goalMs) setReadout("sub", "hedef " + goalLabel(curGoal()) + " · %" + Math.floor(p*100));
     else setReadout("sub", "hedef tamam · +" + dur(el - goalMs));
 
-    targetLevel = active ? Math.min(1, Math.max(0.035, p)) : 0;
+    targetLevel = active ? (hasGoal ? Math.min(1, Math.max(0.035, p)) : 0.35) : 0;
     if (reduce) drawWave();
     arc.setAttribute("stroke-dashoffset", (CIRC*(1 - Math.min(1, p))).toFixed(2));
     arc.classList.toggle("over", active && p >= 1);
@@ -409,8 +419,12 @@ textarea{min-height:90px;font-family:var(--f-mono);font-size:12px;resize:vertica
       span.innerHTML = "";
       span.append("Başladı: ");
       var b1 = document.createElement("b"); b1.textContent = fmtDT.format(state.active.start); span.append(b1);
-      span.append(" · Hedef: ");
-      var b2 = document.createElement("b"); b2.textContent = fmtDT.format(state.active.start + goalMs); span.append(b2);
+      if (hasGoal){
+        span.append(" · Hedef: ");
+        var b2 = document.createElement("b"); b2.textContent = fmtDT.format(state.active.start + goalMs); span.append(b2);
+      } else {
+        span.append(" · Süresiz: sen bitirene kadar devam eder.");
+      }
     } else {
       span.textContent = "Başlatınca sadece başlangıç saati kaydedilir. Uygulamayı kapatsan da sayaç kaldığı yerden devam eder.";
     }
@@ -484,7 +498,7 @@ textarea{min-height:90px;font-family:var(--f-mono);font-size:12px;resize:vertica
     var a = state.active, end = Date.now(), el = end - a.start;
     state.history.unshift({start: a.start, end: end, goal: a.goal, water: a.water || 0});
     state.active = null; save(); setMode();
-    var t = "Oruç kaydedildi: " + dur(el) + ". " + (el >= a.goal*H ? "Hedefin olan " + a.goal + " saati tamamladın." : "Hedefin " + a.goal + " saatti.");
+    var t = "Oruç kaydedildi: " + dur(el) + ". " + (a.goal === -1 ? "Süresiz sayacı bitirdin." : (el >= a.goal*H ? "Hedefini tamamladın: " + goalLabel(a.goal) + "." : "Hedefin: " + goalLabel(a.goal) + "."));
     if (el >= 24*H) t += " Uzun bir oruçtan çıktın: az ve hafif yemekle başla, yavaş ilerle.";
     showMsg(t, false);
   });
@@ -538,8 +552,8 @@ textarea{min-height:90px;font-family:var(--f-mono);font-size:12px;resize:vertica
       var du = document.createElement("span"); du.className = "hdur"; du.textContent = dur(el);
       main.appendChild(dt); main.appendChild(du);
       var meta = document.createElement("div"); meta.className = "hmeta";
-      var pill = document.createElement("span"); var ok = el >= x.goal*H;
-      pill.className = "pill" + (ok ? " ok" : ""); pill.textContent = (ok ? "Hedef tamam · " : "Hedef ") + x.goal + " sa";
+      var pill = document.createElement("span"); var ok = x.goal > 0 && el >= x.goal*H;
+      pill.className = "pill" + (ok ? " ok" : ""); pill.textContent = x.goal === -1 ? "Süresiz" : (ok ? "Hedef tamam · " : "Hedef ") + goalLabel(x.goal);
       var w = document.createElement("span"); w.textContent = (x.water||0) + " bardak su";
       meta.appendChild(pill); meta.appendChild(w);
       if (real){
