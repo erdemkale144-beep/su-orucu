@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Su Orucu">
+<meta name="theme-color" content="#EBF1F0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#081315" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Su Orucu Sayacı</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=Martian+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one phone-width column; a round water vessel that fills toward the goal is the hero, controls and the hour-by-hour timeline stack below */
+:root{
+  --bg:#EBF1F0; --surface:#F7FAF9; --ink:#0F2A2E; --muted:#526C6C; --line:#CAD9D7;
+  --water:#178A9C; --water-deep:#0E6B7A; --water-soft:#9BD0D8; --link:#0E6B7A;
+  --amber:#9E5F06; --amber-soft:#F5E6C8; --danger:#A3392B; --on-water:#FFFFFF;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Martian Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#081315; --surface:#0F1F22; --ink:#DDEBEA; --muted:#8AA5A6; --line:#203A3E;
+    --water:#2A9FB2; --water-deep:#1A7787; --water-soft:#1D4E57; --link:#6CCBDA;
+    --amber:#E2A847; --amber-soft:#2B2313; --danger:#EC7B69; --on-water:#F2FBFB;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#081315; --surface:#0F1F22; --ink:#DDEBEA; --muted:#8AA5A6; --line:#203A3E;
+  --water:#2A9FB2; --water-deep:#1A7787; --water-soft:#1D4E57; --link:#6CCBDA;
+  --amber:#E2A847; --amber-soft:#2B2313; --danger:#EC7B69; --on-water:#F2FBFB;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+.app{max-width:460px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 48px;display:flex;flex-direction:column;gap:26px}
+h1,h2{font-family:var(--f-display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:21px;line-height:1.2}
+p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.brand{font-family:var(--f-display);font-weight:700;font-size:21px;display:flex;align-items:center;gap:9px}
+.mark{width:16px;height:16px;border-radius:50%;border:2px solid var(--water);background:linear-gradient(to top,var(--water) 55%,transparent 55%)}
+.today{color:var(--muted);font-size:13px}
+
+.hero{display:flex;flex-direction:column;align-items:center;gap:10px}
+#vessel{width:100%;max-width:300px;height:auto;display:block}
+.track{fill:none;stroke:var(--line);stroke-width:5}
+.arc{fill:none;stroke:var(--water);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .6s ease}
+.arc.over{stroke:var(--amber)}
+.glass{fill:var(--surface);stroke:var(--line);stroke-width:1}
+.wave-back{fill:var(--water-soft)}
+.wave-front{fill:var(--water)}
+.readout text{text-anchor:middle;font-family:var(--f-mono)}
+.lbl{font-size:9.5px;letter-spacing:.16em;fill:var(--muted)}
+.clock{font-size:29px;font-weight:500;fill:var(--ink);font-variant-numeric:tabular-nums}
+.sub{font-size:10.5px;fill:var(--muted)}
+.on-water .lbl,.on-water .sub{fill:var(--on-water);opacity:.88}
+.on-water .clock{fill:var(--on-water)}
+.span{color:var(--muted);font-size:13.5px;text-align:center;max-width:34ch}
+.span b{color:var(--ink);font-weight:600}
+
+.alert{border:1px solid var(--amber);background:var(--amber-soft);border-radius:12px;padding:12px 14px;font-size:14px}
+.alert.danger{border-color:var(--danger)}
+.alert strong{display:block;margin-bottom:2px}
+
+.controls{display:flex;flex-direction:column;gap:14px}
+.goal-head{display:flex;justify-content:space-between;align-items:baseline}
+.eyebrow{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.goals{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-family:var(--f-mono);font-size:12.5px;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);min-height:38px}
+.chip[aria-checked="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.primary,.secondary,.danger-btn{min-height:52px;border-radius:14px;border:0;font-weight:600;font-size:16px;padding:0 18px;width:100%}
+.primary{background:var(--water-deep);color:#fff}
+.primary.end{background:var(--ink);color:var(--bg)}
+.secondary{background:var(--surface);border:1px solid var(--line)}
+.danger-btn{background:var(--danger);color:var(--surface)}
+.text-btn{background:none;border:0;padding:6px 0;color:var(--link);text-decoration:underline;text-underline-offset:3px;align-self:flex-start;font-size:14px}
+.row{display:flex;gap:10px}
+.row > *{flex:1}
+.confirm{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.form{display:flex;flex-direction:column;gap:8px}
+.form label{font-size:13.5px;color:var(--muted)}
+input[type="datetime-local"],textarea{font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);width:100%;min-width:0}
+.msg{font-size:14px;border-radius:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--line)}
+.msg.err{border-color:var(--danger)}
+
+.water{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:20px}
+.water-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.water-row p{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.glasses{display:flex;gap:5px;flex-wrap:wrap;align-items:flex-end;min-height:18px}
+.g{width:11px;height:17px;border:1.5px solid var(--water);border-radius:2px 2px 4px 4px}
+.g.full{background:var(--water)}
+.gmore{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.water .row{max-width:260px}
+.sq{flex:0 0 52px !important;width:52px;font-size:22px;padding:0}
+
+.now{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.now p.body{font-size:15px}
+.next{font-size:13.5px;color:var(--muted);padding-top:6px;border-top:1px dashed var(--line);margin-top:4px}
+
+.timeline-sec{display:flex;flex-direction:column;gap:12px}
+.timeline{list-style:none;margin:0;padding:0}
+.ph{position:relative;padding-left:20px;border-left:2px solid var(--line);margin-left:5px}
+.ph::before{content:"";position:absolute;left:-7px;top:15px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--line)}
+.ph.done{border-left-color:var(--water)}
+.ph.done::before{background:var(--water);border-color:var(--water)}
+.ph.cur::before{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 4px var(--amber-soft)}
+.ph:last-child{border-left-color:transparent}
+summary{display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:baseline;padding:10px 0;cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+.ph .h{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ph .nm{font-weight:500;min-width:0}
+.ph.cur .nm{font-weight:600}
+.ph .st{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted)}
+.ph.cur .st{color:var(--amber)}
+.ph details p{padding:0 0 14px 60px;font-size:14.5px;color:var(--muted)}
+.fine{font-size:12.5px;color:var(--muted)}
+
+.history-sec{display:flex;flex-direction:column;gap:14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding-block:14px}
+.stat b{display:block;font-family:var(--f-display);font-size:21px;font-variant-numeric:tabular-nums;line-height:1.2}
+.stat span{font-size:12.5px;color:var(--muted)}
+.history{list-style:none;margin:0;padding:0}
+.history li{padding:12px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:5px}
+.hmain{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.hdur{font-family:var(--f-mono);font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hmeta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.pill{font-size:12px;padding:2px 9px;border-radius:999px;background:var(--line);color:var(--ink)}
+.pill.ok{background:var(--water-soft)}
+.del{margin-left:auto;background:none;border:0;color:var(--muted);font-size:13px;padding:6px 0;text-decoration:underline;text-underline-offset:3px}
+.del.armed{color:var(--danger);font-weight:600}
+.empty{color:var(--muted);font-size:14px}
+.example-note{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)}
+
+.backup{border-top:1px solid var(--line);padding-top:14px}
+.backup summary{display:block;padding:4px 0;color:var(--link);font-size:14px;text-decoration:underline;text-underline-offset:3px}
+.backup .inner{display:flex;flex-direction:column;gap:10px;padding-top:10px}
+textarea{min-height:90px;font-family:var(--f-mono);font-size:12px;resize:vertical}
+
+@media (prefers-reduced-motion: reduce){.arc{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span>Su Orucu</div>
+    <div class="today" id="today"></div>
+  </header>
+
+  <section class="hero" aria-label="Oruç sayacı">
+    <svg id="vessel" viewBox="0 0 240 240" role="img" aria-labelledby="vesselTitle">
+      <title id="vesselTitle">Geçen süre</title>
+      <defs>
+        <clipPath id="innerClip"><circle cx="120" cy="120" r="102"/></clipPath>
+        <clipPath id="waterClip"><path id="wcPath" d="M0 240 Z"/></clipPath>
+      </defs>
+      <circle class="track" cx="120" cy="120" r="114"/>
+      <circle class="arc" id="arc" cx="120" cy="120" r="114" transform="rotate(-90 120 120)"/>
+      <circle class="glass" cx="120" cy="120" r="102"/>
+      <g clip-path="url(#innerClip)">
+        <path class="wave-back" id="waveBack" d="M0 240 Z"/>
+        <path class="wave-front" id="waveFront" d="M0 240 Z"/>
+      </g>
+      <g class="readout">
+        <text x="120" y="98" class="lbl" data-t="lbl">HAZIR</text>
+        <text x="120" y="134" class="clock" data-t="clock">00:00:00</text>
+        <text x="120" y="158" class="sub" data-t="sub">hedef 16 sa</text>
+      </g>
+      <g class="readout on-water" clip-path="url(#waterClip)">
+        <text x="120" y="98" class="lbl" data-t="lbl">HAZIR</text>
+        <text x="120" y="134" class="clock" data-t="clock">00:00:00</text>
+        <text x="120" y="158" class="sub" data-t="sub">hedef 16 sa</text>
+      </g>
+    </svg>
+    <p class="span" id="span"></p>
+  </section>
+
+  <div class="alert" id="alert" role="status" hidden></div>
+
+  <section class="controls" aria-label="Kontroller">
+    <div class="goal-head"><span class="eyebrow">Hedef süre</span></div>
+    <div class="goals" role="radiogroup" aria-label="Hedef süre" id="goals"></div>
+
+    <div id="idleCtl" class="controls">
+      <button class="primary" id="startBtn" type="button">Orucu başlat</button>
+      <button class="text-btn" id="pastToggle" type="button" aria-expanded="false">Daha önce başladım</button>
+      <div class="form" id="pastRow" hidden>
+        <label for="pastInput">Orucu ne zaman başlattın?</label>
+        <input type="datetime-local" id="pastInput">
+        <button class="secondary" id="pastStart" type="button">Bu saatten başlat</button>
+      </div>
+    </div>
+
+    <div id="activeCtl" class="controls" hidden>
+      <button class="primary end" id="endBtn" type="button">Orucu bitir</button>
+      <div class="confirm" id="endConfirm" hidden>
+        <p>Orucu şimdi bitirip geçmişe kaydedeyim mi?</p>
+        <div class="row">
+          <button class="danger-btn" id="endYes" type="button">Evet, bitir</button>
+          <button class="secondary" id="endNo" type="button">Vazgeç</button>
+        </div>
+      </div>
+      <button class="text-btn" id="editToggle" type="button" aria-expanded="false">Başlangıç saatini düzelt</button>
+      <div class="form" id="editRow" hidden>
+        <label for="editInput">Doğru başlangıç zamanı</label>
+        <input type="datetime-local" id="editInput">
+        <button class="secondary" id="editSave" type="button">Kaydet</button>
+      </div>
+    </div>
+
+    <p class="msg" id="msg" role="status" hidden></p>
+  </section>
+
+  <section class="water" id="waterSec" aria-label="Su takibi" hidden>
+    <div class="water-row">
+      <div><h2>Su</h2><p id="waterText">0 bardak · 0 ml</p></div>
+      <div class="glasses" id="glasses" aria-hidden="true"></div>
+    </div>
+    <div class="row">
+      <button class="secondary sq" id="waterMinus" type="button" aria-label="Bir bardak çıkar">−</button>
+      <button class="secondary" id="waterPlus" type="button">+ 1 bardak (250 ml)</button>
+    </div>
+  </section>
+
+  <section class="now" aria-live="polite">
+    <p class="eyebrow" id="nowEyebrow">Başlamadan önce</p>
+    <h2 id="nowName">Saat saat neler olur</h2>
+    <p class="body" id="nowBody"></p>
+    <p class="next" id="nowNext" hidden></p>
+  </section>
+
+  <section class="timeline-sec">
+    <h2>Saat saat vücudun</h2>
+    <ol class="timeline" id="timeline"></ol>
+    <p class="fine">Süreler yaklaşıktır. Son öğününe, aktivitene ve vücuduna göre değişir. Bu bilgiler genel bilgidir, tıbbi tavsiye değildir.</p>
+  </section>
+
+  <section class="history-sec">
+    <h2>Geçmiş</h2>
+    <div class="stats" id="stats"></div>
+    <p class="example-note" id="exampleNote" hidden>ÖRNEK KAYITLAR · İLK ORUCUNU BİTİRİNCE KAYBOLUR</p>
+    <ul class="history" id="history"></ul>
+    <details class="backup">
+      <summary>Yedekle / geri yükle</summary>
+      <div class="inner">
+        <p class="fine">Veriler sadece bu telefonda saklanır. Uygulamayı silmeden önce yedeği kopyalayıp bir notta sakla.</p>
+        <button class="secondary" id="copyBtn" type="button">Yedeği kopyala</button>
+        <label class="fine" for="restoreText">Yedeği buraya yapıştır</label>
+        <textarea id="restoreText" spellcheck="false"></textarea>
+        <button class="secondary" id="restoreBtn" type="button">Geri yükle</button>
+        <p class="fine" id="backupMsg" role="status"></p>
+      </div>
+    </details>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY = "suorucu.v1";
+  var H = 3600000;
+  var GOALS = [12, 16, 18, 20, 24, 36, 48, 72];
+  var PHASES = [
+    {h:0,  name:"Sindirim", body:"Kan şekerin ve insülinin son öğüne bağlı olarak yüksek. Vücudun besinleri sindiriyor, enerjinin bir kısmını hemen kullanıyor, kalanını glikojen ve yağ olarak depoluyor."},
+    {h:4,  name:"İnsülin düşüyor", body:"Kan şekerin normale dönüyor ve insülin azalıyor. Vücut enerji için karaciğerdeki glikojen deposunu kullanmaya başlıyor."},
+    {h:8,  name:"Glikojen kullanılıyor", body:"Karaciğer glikojeni azalırken yağ yakımı yavaş yavaş artıyor. Alışık olduğun öğün saatlerinde açlık hormonu grelin yükselir; açlık dalga dalga gelir ve genelde 20–30 dakikada geçer."},
+    {h:12, name:"Ketozise geçiş", body:"Glikojen deposu belirgin şekilde azaldı. Yağ asitleri ana yakıt olmaya başlıyor ve karaciğer keton üretiyor. Hafif ketozis çoğu kişide 12 ile 24 saat arasında başlar."},
+    {h:18, name:"Yağ yakımı ön planda", body:"Keton seviyesi yükseliyor, vücut enerjisinin büyük kısmını yağdan alıyor. Hücrelerin eski parçalarını geri dönüştürdüğü otofajinin oruçla arttığı biliniyor, ama insanda tam zamanlaması henüz net değil."},
+    {h:24, name:"Glikojen neredeyse bitti", body:"Karaciğer glikojeni büyük ölçüde tükendi; vücut glikozu yağdan ve proteinden kendisi üretiyor (glukoneogenez). Büyüme hormonu yükselir ve bu kas kaybını sınırlamaya yardım eder. Bu noktadan sonra tuz ve elektrolitler önemli."},
+    {h:36, name:"Derin ketozis", body:"Ketozis derinleşiyor. Birçok kişide açlık hissi bu aşamada azalır, bazılarında halsizlik ve baş ağrısı olur. Su ve elektrolitlere dikkat et."},
+    {h:48, name:"Beyin ketonla çalışıyor", body:"Ketonlar beynin enerji ihtiyacının önemli bir kısmını karşılamaya başlıyor. Elektrolit dengesizliği riski artıyor: baş dönmesi, çarpıntı ve kas krampları ciddiye alınmalı."},
+    {h:72, name:"Uzun oruç", body:"72 saati geçen oruçlar doktor gözetiminde yapılmalı. Orucu açarken az ve hafif yemekle başla; uzun açlıktan sonra hızlı ve ağır yemek tehlikeli olabilir (refeeding sendromu)."}
+  ];
+  var EXAMPLES = (function(){
+    var d = new Date(); d.setHours(20, 0, 0, 0);
+    var base = d.getTime();
+    return [
+      {start: base - 2*24*H, end: base - 2*24*H + 17*H + 10*60000, goal: 16, water: 6},
+      {start: base - 5*24*H, end: base - 5*24*H + 14*H + 35*60000, goal: 16, water: 4},
+      {start: base - 9*24*H, end: base - 9*24*H + 24*H + 20*60000, goal: 24, water: 9}
+    ];
+  })();
+
+  function $(id){ return document.getElementById(id); }
+  function load(){
+    try{
+      var s = JSON.parse(localStorage.getItem(KEY));
+      if (s && typeof s === "object") {
+        return {active: s.active || null, history: Array.isArray(s.history) ? s.history : [], goal: s.goal || 16};
+      }
+    }catch(e){}
+    return {active:null, history:[], goal:16};
+  }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+  var state = load();
+
+  function pad(n){ return String(n).padStart(2, "0"); }
+  function clock(ms){ var s = Math.floor(ms/1000); return pad(Math.floor(s/3600)) + ":" + pad(Math.floor(s%3600/60)) + ":" + pad(s%60); }
+  function dur(ms){ var m = Math.max(0, Math.floor(ms/60000)); var h = Math.floor(m/60), r = m%60; if (!h) return r + " dk"; return r ? h + " sa " + r + " dk" : h + " sa"; }
+  var fmtDT = new Intl.DateTimeFormat("tr-TR", {weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"});
+  var fmtDay = new Intl.DateTimeFormat("tr-TR", {weekday:"long", day:"numeric", month:"long"});
+  function cap(s){ return s.charAt(0).toLocaleUpperCase("tr-TR") + s.slice(1); }
+  function toInput(ms){ var d = new Date(ms); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes()); }
+  function fromInput(v){ if (!v) return NaN; return new Date(v).getTime(); }
+  function elapsed(){ return state.active ? Math.max(0, Date.now() - state.active.start) : 0; }
+  function curGoal(){ return state.active ? state.active.goal : state.goal; }
+  function phaseIndex(hours){ var idx = 0; for (var i=0;i<PHASES.length;i++){ if (PHASES[i].h <= hours) idx = i; } return idx; }
+
+  /* ---------- vessel ---------- */
+  var CIRC = 2*Math.PI*114;
+  var arc = $("arc");
+  arc.setAttribute("stroke-dasharray", CIRC.toFixed(2));
+  arc.setAttribute("stroke-dashoffset", CIRC.toFixed(2));
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var level = 0, targetLevel = 0, wavePhase = 0;
+  function wave(y, amp, ph){
+    var d = "M0 " + y.toFixed(1);
+    for (var x=0; x<=240; x+=8){ d += " L" + x + " " + (y + Math.sin(x/240*Math.PI*3 + ph)*amp).toFixed(1); }
+    return d + " L240 240 L0 240 Z";
+  }
+  function drawWave(){
+    level = reduce ? targetLevel : level + (targetLevel - level)*0.06;
+    var y = 222 - level*204;
+    var amp = (level > 0.002 && level < 0.995) ? 4 : 0;
+    var front = wave(y, amp, wavePhase);
+    $("waveBack").setAttribute("d", wave(y - 3, amp, wavePhase + 2.1));
+    $("waveFront").setAttribute("d", front);
+    $("wcPath").setAttribute("d", front);
+  }
+  function loop(){ wavePhase += 0.03; drawWave(); requestAnimationFrame(loop); }
+  function setReadout(key, text){ var els = document.querySelectorAll('[data-t="'+key+'"]'); for (var i=0;i<els.length;i++) els[i].textContent = text; }
+
+  /* ---------- goals ---------- */
+  function renderGoals(){
+    var g = $("goals"); g.innerHTML = "";
+    GOALS.forEach(function(h){
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip"; b.id = "goal-" + h;
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", String(h === curGoal()));
+      b.textContent = h + " sa";
+      b.addEventListener("click", function(){ state.goal = h; if (state.active) state.active.goal = h; save(); renderGoals(); tick(); });
+      g.appendChild(b);
+    });
+  }
+
+  /* ---------- timeline ---------- */
+  var lastPhase = -1;
+  function buildTimeline(){
+    var ol = $("timeline"); ol.innerHTML = "";
+    PHASES.forEach(function(p, i){
+      var li = document.createElement("li"); li.className = "ph"; li.dataset.i = i;
+      var det = document.createElement("details");
+      var sum = document.createElement("summary");
+      sum.innerHTML = '<span class="h">' + p.h + ' sa</span><span class="nm"></span><span class="st"></span>';
+      sum.querySelector(".nm").textContent = p.name;
+      var body = document.createElement("p"); body.textContent = p.body;
+      det.appendChild(sum); det.appendChild(body); li.appendChild(det); ol.appendChild(li);
+    });
+  }
+  function updateTimeline(idx, active){
+    var items = document.querySelectorAll(".ph");
+    for (var k=0;k<items.length;k++){
+      var li = items[k], i = +li.dataset.i;
+      li.classList.toggle("done", active && i < idx);
+      li.classList.toggle("cur", active && i === idx);
+      li.querySelector(".st").textContent = !active ? "" : (i < idx ? "GEÇTİ" : (i === idx ? "ŞU AN" : ""));
+    }
+    var key = active ? idx : -2;
+    if (key !== lastPhase){
+      for (var j=0;j<items.length;j++){ items[j].querySelector("details").open = active ? (+items[j].dataset.i === idx) : false; }
+      lastPhase = key;
+    }
+  }
+
+  /* ---------- main tick ---------- */
+  function tick(){
+    var active = !!state.active;
+    var el = elapsed();
+    var goalMs = curGoal()*H;
+    var p = active ? el/goalMs : 0;
+
+    setReadout("lbl", active ? "GEÇEN SÜRE" : "HAZIR");
+    setReadout("clock", clock(el));
+    if (!active) setReadout("sub", "hedef " + curGoal() + " sa");
+    else if (el < goalMs) setReadout("sub", "hedef " + curGoal() + " sa · %" + Math.floor(p*100));
+    else setReadout("sub", "hedef tamam · +" + dur(el - goalMs));
+
+    targetLevel = active ? Math.min(1, Math.max(0.035, p)) : 0;
+    if (reduce) drawWave();
+    arc.setAttribute("stroke-dashoffset", (CIRC*(1 - Math.min(1, p))).toFixed(2));
+    arc.classList.toggle("over", active && p >= 1);
+
+    var span = $("span");
+    if (active){
+      span.innerHTML = "";
+      span.append("Başladı: ");
+      var b1 = document.createElement("b"); b1.textContent = fmtDT.format(state.active.start); span.append(b1);
+      span.append(" · Hedef: ");
+      var b2 = document.createElement("b"); b2.textContent = fmtDT.format(state.active.start + goalMs); span.append(b2);
+    } else {
+      span.textContent = "Başlatınca sadece başlangıç saati kaydedilir. Uygulamayı kapatsan da sayaç kaldığı yerden devam eder.";
+    }
+
+    var hours = el/H;
+    var idx = phaseIndex(hours);
+    if (active){
+      var ph = PHASES[idx];
+      $("nowEyebrow").textContent = "Şu an vücudunda · " + ph.h + ". saatten beri";
+      $("nowName").textContent = ph.name;
+      $("nowBody").textContent = ph.body;
+      var nx = PHASES[idx+1];
+      $("nowNext").hidden = false;
+      $("nowNext").textContent = nx ? ("Sonraki aşama, " + nx.name + ": " + dur(nx.h*H - el) + " sonra") : "Son aşamadasın.";
+    } else {
+      $("nowEyebrow").textContent = "Başlamadan önce";
+      $("nowName").textContent = "Saat saat neler olur";
+      $("nowBody").textContent = "Orucu başlattığında burada o an vücudunda neler olduğunu ve bir sonraki aşamaya ne kadar kaldığını görürsün. Aşağıdaki listede her aşamaya dokunup açıklamasını okuyabilirsin.";
+      $("nowNext").hidden = true;
+    }
+    updateTimeline(idx, active);
+
+    var al = $("alert");
+    if (active && hours >= 24){
+      al.hidden = false; al.classList.toggle("danger", hours >= 48); al.innerHTML = "";
+      var st = document.createElement("strong"), tx = document.createElement("span");
+      if (hours >= 72){ st.textContent = "72 saati geçtin"; tx.textContent = "Bu uzunlukta oruç doktor gözetiminde yapılmalı. Göğüs ağrısı, çarpıntı, bayılma hissi ya da şiddetli baş dönmesi olursa orucu hemen bitir ve tıbbi yardım al."; }
+      else if (hours >= 48){ st.textContent = "48 saati geçtin"; tx.textContent = "Göğüs ağrısı, çarpıntı, bayılma hissi ya da şiddetli baş dönmesi olursa orucu hemen bitir ve gerekirse tıbbi yardım al. Elektrolitleri ihmal etme."; }
+      else { st.textContent = "24 saati geçtin"; tx.textContent = "Suyuna bir tutam tuz eklemek ya da elektrolit almak baş ağrısını ve halsizliği önlemeye yardım eder."; }
+      al.appendChild(st); al.appendChild(tx);
+    } else { al.hidden = true; }
+  }
+
+  /* ---------- controls ---------- */
+  function showMsg(text, err){ var m = $("msg"); m.textContent = text; m.classList.toggle("err", !!err); m.hidden = false; }
+  function hideMsg(){ $("msg").hidden = true; }
+  function setMode(){
+    var active = !!state.active;
+    $("idleCtl").hidden = active;
+    $("activeCtl").hidden = !active;
+    $("waterSec").hidden = !active;
+    $("endConfirm").hidden = true; $("endBtn").hidden = false;
+    $("editRow").hidden = true; $("editToggle").setAttribute("aria-expanded", "false");
+    $("pastRow").hidden = true; $("pastToggle").setAttribute("aria-expanded", "false");
+    renderGoals(); renderWater(); renderHistory(); tick();
+  }
+  function startAt(ms){
+    state.active = {start: ms, goal: state.goal, water: 0};
+    save(); hideMsg(); setMode();
+  }
+  $("startBtn").addEventListener("click", function(){ startAt(Date.now()); });
+  $("pastToggle").addEventListener("click", function(){
+    var r = $("pastRow"); r.hidden = !r.hidden;
+    this.setAttribute("aria-expanded", String(!r.hidden));
+    if (!r.hidden){ $("pastInput").value = toInput(Date.now() - 2*H); $("pastInput").max = toInput(Date.now()); }
+  });
+  function validStart(t){
+    if (isNaN(t)) return "Bir tarih ve saat seç.";
+    if (t > Date.now() + 60000) return "Başlangıç zamanı gelecekte olamaz.";
+    if (t < Date.now() - 14*24*H) return "Başlangıç en fazla 14 gün önce olabilir.";
+    return "";
+  }
+  $("pastStart").addEventListener("click", function(){
+    var t = fromInput($("pastInput").value), e = validStart(t);
+    if (e){ showMsg(e, true); return; }
+    startAt(Math.min(t, Date.now()));
+  });
+  $("endBtn").addEventListener("click", function(){ $("endConfirm").hidden = false; this.hidden = true; $("endYes").focus(); });
+  $("endNo").addEventListener("click", function(){ $("endConfirm").hidden = true; $("endBtn").hidden = false; });
+  $("endYes").addEventListener("click", function(){
+    var a = state.active, end = Date.now(), el = end - a.start;
+    state.history.unshift({start: a.start, end: end, goal: a.goal, water: a.water || 0});
+    state.active = null; save(); setMode();
+    var t = "Oruç kaydedildi: " + dur(el) + ". " + (el >= a.goal*H ? "Hedefin olan " + a.goal + " saati tamamladın." : "Hedefin " + a.goal + " saatti.");
+    if (el >= 24*H) t += " Uzun bir oruçtan çıktın: az ve hafif yemekle başla, yavaş ilerle.";
+    showMsg(t, false);
+  });
+  $("editToggle").addEventListener("click", function(){
+    var r = $("editRow"); r.hidden = !r.hidden;
+    this.setAttribute("aria-expanded", String(!r.hidden));
+    if (!r.hidden){ $("editInput").value = toInput(state.active.start); $("editInput").max = toInput(Date.now()); }
+  });
+  $("editSave").addEventListener("click", function(){
+    var t = fromInput($("editInput").value), e = validStart(t);
+    if (e){ showMsg(e, true); return; }
+    state.active.start = Math.min(t, Date.now()); save();
+    $("editRow").hidden = true; $("editToggle").setAttribute("aria-expanded", "false");
+    showMsg("Başlangıç saati güncellendi.", false); tick();
+  });
+
+  /* ---------- water ---------- */
+  function renderWater(){
+    if (!state.active) return;
+    var n = state.active.water || 0;
+    $("waterText").textContent = n + " bardak · " + (n*250).toLocaleString("tr-TR") + " ml";
+    var g = $("glasses"); g.innerHTML = "";
+    var show = Math.max(8, Math.min(n, 12));
+    for (var i=0;i<show;i++){ var d = document.createElement("span"); d.className = "g" + (i < n ? " full" : ""); g.appendChild(d); }
+    if (n > 12){ var m = document.createElement("span"); m.className = "gmore"; m.textContent = "+" + (n - 12); g.appendChild(m); }
+  }
+  $("waterPlus").addEventListener("click", function(){ if (!state.active) return; state.active.water = (state.active.water||0) + 1; save(); renderWater(); });
+  $("waterMinus").addEventListener("click", function(){ if (!state.active) return; state.active.water = Math.max(0, (state.active.water||0) - 1); save(); renderWater(); });
+
+  /* ---------- history ---------- */
+  function renderHistory(){
+    var real = state.history.length > 0;
+    var list = real ? state.history : EXAMPLES;
+    $("exampleNote").hidden = real;
+    var durs = list.map(function(x){ return x.end - x.start; });
+    var longest = durs.length ? Math.max.apply(null, durs) : 0;
+    var avg = durs.length ? durs.reduce(function(a,b){return a+b;}, 0)/durs.length : 0;
+    var stats = $("stats"); stats.innerHTML = "";
+    [[String(list.length), "oruç"], [dur(longest), "en uzun"], [dur(avg), "ortalama"]].forEach(function(s){
+      var d = document.createElement("div"); d.className = "stat";
+      var b = document.createElement("b"); b.textContent = s[0];
+      var sp = document.createElement("span"); sp.textContent = s[1];
+      d.appendChild(b); d.appendChild(sp); stats.appendChild(d);
+    });
+    var ul = $("history"); ul.innerHTML = "";
+    list.forEach(function(x, i){
+      var el = x.end - x.start;
+      var li = document.createElement("li");
+      var main = document.createElement("div"); main.className = "hmain";
+      var dt = document.createElement("span"); dt.textContent = fmtDT.format(x.start);
+      var du = document.createElement("span"); du.className = "hdur"; du.textContent = dur(el);
+      main.appendChild(dt); main.appendChild(du);
+      var meta = document.createElement("div"); meta.className = "hmeta";
+      var pill = document.createElement("span"); var ok = el >= x.goal*H;
+      pill.className = "pill" + (ok ? " ok" : ""); pill.textContent = (ok ? "Hedef tamam · " : "Hedef ") + x.goal + " sa";
+      var w = document.createElement("span"); w.textContent = (x.water||0) + " bardak su";
+      meta.appendChild(pill); meta.appendChild(w);
+      if (real){
+        var del = document.createElement("button"); del.type = "button"; del.className = "del"; del.textContent = "Sil";
+        var timer = null;
+        del.addEventListener("click", function(){
+          if (del.classList.contains("armed")){ state.history.splice(i, 1); save(); renderHistory(); return; }
+          del.classList.add("armed"); del.textContent = "Silmek için tekrar dokun";
+          timer = setTimeout(function(){ del.classList.remove("armed"); del.textContent = "Sil"; }, 3500);
+        });
+        meta.appendChild(del);
+      }
+      li.appendChild(main); li.appendChild(meta); ul.appendChild(li);
+    });
+  }
+
+  /* ---------- backup ---------- */
+  $("copyBtn").addEventListener("click", function(){
+    var json = JSON.stringify(state);
+    var ta = $("restoreText");
+    function fallback(){ ta.value = json; ta.focus(); ta.select(); $("backupMsg").textContent = "Kopyalanamadı. Yedek aşağıda seçili; elle kopyalayabilirsin."; }
+    try{
+      navigator.clipboard.writeText(json).then(function(){ $("backupMsg").textContent = "Yedek panoya kopyalandı. Bir notta sakla."; }, fallback);
+    }catch(e){ fallback(); }
+  });
+  $("restoreBtn").addEventListener("click", function(){
+    try{
+      var s = JSON.parse($("restoreText").value);
+      if (!s || !Array.isArray(s.history)) throw new Error("bad");
+      state = {active: s.active || null, history: s.history, goal: s.goal || 16};
+      save(); setMode(); $("backupMsg").textContent = "Yedek geri yüklendi: " + state.history.length + " kayıt.";
+    }catch(e){ $("backupMsg").textContent = "Bu metin geçerli bir yedek değil. Yedeği kopyaladığın şekliyle eksiksiz yapıştır."; }
+  });
+
+  /* ---------- boot ---------- */
+  $("today").textContent = cap(fmtDay.format(new Date()));
+  buildTimeline();
+  setMode();
+  if (reduce) drawWave(); else requestAnimationFrame(loop);
+  setInterval(tick, 1000);
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden){ tick(); renderWater(); } });
+})();
+</script>
+
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
+</body>
+</html>
